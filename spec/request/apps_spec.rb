@@ -57,7 +57,8 @@ RSpec.describe 'Apps' do
       parsed_response = MultiJson.load(last_response.body)
       app_guid = parsed_response['guid']
 
-      expect(VCAP::CloudController::AppModel.find(guid: app_guid)).to be
+      app_model = VCAP::CloudController::AppModel.find(guid: app_guid)
+      expect(app_model).to be
       expect(parsed_response).to be_a_response_like(
         {
             'name' => 'my_app',
@@ -71,6 +72,11 @@ RSpec.describe 'Apps' do
                 }
             },
             'relationships' => {
+              'processes' => {
+                'data' => [
+                  { 'guid' => app_model.processes.first.guid }
+                ]
+              },
                 'space' => {
                     'data' => {
                         'guid' => space.guid
@@ -191,6 +197,11 @@ RSpec.describe 'Apps' do
                 'data' => {}
             },
             'relationships' => {
+                'processes' => {
+                  'data' => [
+                    { 'guid' => created_app.processes.first.guid }
+                  ]
+                },
                 'space' => {
                     'data' => {
                         'guid' => space.guid
@@ -272,6 +283,7 @@ RSpec.describe 'Apps' do
         buildpacks: [buildpack.name],
         stack: stack.name
       )
+      process1 = VCAP::CloudController::ProcessModel.make(app: app_model1, command: 'command1')
 
       app_model2 = VCAP::CloudController::AppModel.make(
         :docker,
@@ -279,10 +291,11 @@ RSpec.describe 'Apps' do
           space: space,
           desired_state: 'STARTED'
       )
+      process2 = VCAP::CloudController::ProcessModel.make(app: app_model2, command: 'command2')
       VCAP::CloudController::AppModel.make(space: space)
       VCAP::CloudController::AppModel.make
 
-      get '/v3/apps?per_page=2&include=space', nil, user_header
+      get '/v3/apps?per_page=2&include=space,processes', nil, user_header
       expect(last_response.status).to eq(200)
 
       parsed_response = MultiJson.load(last_response.body)
@@ -291,9 +304,9 @@ RSpec.describe 'Apps' do
             'pagination' => {
                 'total_results' => 3,
                 'total_pages' => 2,
-                'first' => { 'href' => "#{link_prefix}/v3/apps?include=space&page=1&per_page=2" },
-                'last' => { 'href' => "#{link_prefix}/v3/apps?include=space&page=2&per_page=2" },
-                'next' => { 'href' => "#{link_prefix}/v3/apps?include=space&page=2&per_page=2" },
+                'first' => { 'href' => "#{link_prefix}/v3/apps?include=space%2Cprocesses&page=1&per_page=2" },
+                'last' => { 'href' => "#{link_prefix}/v3/apps?include=space%2Cprocesses&page=2&per_page=2" },
+                'next' => { 'href' => "#{link_prefix}/v3/apps?include=space%2Cprocesses&page=2&per_page=2" },
                 'previous' => nil,
             },
             'resources' => [
@@ -309,6 +322,11 @@ RSpec.describe 'Apps' do
                         }
                     },
                     'relationships' => {
+                        'processes' => {
+                          'data' => [
+                            { 'guid' => process1.guid }
+                          ]
+                        },
                         'space' => {
                             'data' => {
                                 'guid' => space.guid
@@ -343,6 +361,11 @@ RSpec.describe 'Apps' do
                       'data' => {}
                   },
                   'relationships' => {
+                      'processes' => {
+                        'data' => [
+                          { 'guid' => process2.guid }
+                        ]
+                      },
                       'space' => {
                           'data' => {
                               'guid' => space.guid
@@ -370,6 +393,66 @@ RSpec.describe 'Apps' do
               }
             ],
             'included' => {
+              'processes' => [
+                {
+                  'guid' => process1.guid,
+                  'relationships' => {
+                    'app' => { 'data' => { 'guid' => app_model1.guid } },
+                    'revision' => nil,
+                  },
+                  'type'         => 'web',
+                  'command'      => 'command1',
+                  'instances'    => 1,
+                  'memory_in_mb' => 1024,
+                  'disk_in_mb'   => 1024,
+                  'health_check' => {
+                    'type' => 'port',
+                    'data' => {
+                      'timeout' => nil,
+                      'invocation_timeout' => nil
+                    }
+                  },
+                  'metadata' => { 'annotations' => {}, 'labels' => {} },
+                  'created_at'   => iso8601,
+                  'updated_at'   => iso8601,
+                  'links'        => {
+                    'self'  => { 'href' => "#{link_prefix}/v3/processes/#{process1.guid}" },
+                    'scale' => { 'href' => "#{link_prefix}/v3/processes/#{process1.guid}/actions/scale", 'method' => 'POST' },
+                    'app'   => { 'href' => "#{link_prefix}/v3/apps/#{app_model1.guid}" },
+                    'space' => { 'href' => "#{link_prefix}/v3/spaces/#{space.guid}" },
+                    'stats' => { 'href' => "#{link_prefix}/v3/processes/#{process1.guid}/stats" },
+                  },
+                },
+                {
+                  'guid' => process2.guid,
+                  'relationships' => {
+                    'app' => { 'data' => { 'guid' => app_model2.guid } },
+                    'revision' => nil
+                  },
+                  'type'         => 'web',
+                  'command'      => 'command2',
+                  'instances'    => 1,
+                  'memory_in_mb' => 1024,
+                  'disk_in_mb'   => 1024,
+                  'health_check' => {
+                    'type' => 'port',
+                    'data' => {
+                      'timeout' => nil,
+                      'invocation_timeout' => nil
+                    }
+                  },
+                  'metadata' => { 'annotations' => {}, 'labels' => {} },
+                  'created_at'   => iso8601,
+                  'updated_at'   => iso8601,
+                  'links'        => {
+                    'self'  => { 'href' => "#{link_prefix}/v3/processes/#{process2.guid}" },
+                    'scale' => { 'href' => "#{link_prefix}/v3/processes/#{process2.guid}/actions/scale", 'method' => 'POST' },
+                    'app'   => { 'href' => "#{link_prefix}/v3/apps/#{app_model2.guid}" },
+                    'space' => { 'href' => "#{link_prefix}/v3/spaces/#{space.guid}" },
+                    'stats' => { 'href' => "#{link_prefix}/v3/processes/#{process2.guid}/stats" },
+                  },
+                },
+              ],
               'spaces' => [{
                 'guid' => space.guid,
                 'created_at' => iso8601,
@@ -942,13 +1025,15 @@ RSpec.describe 'Apps' do
       droplet_guid: 'a-droplet-guid'
     )
     }
+    let(:process1) { VCAP::CloudController::ProcessModel.make(instances: 1, command: 'command1') }
+    let(:process2) { VCAP::CloudController::ProcessModel.make(instances: 2, command: 'command2') }
 
     before do
       app_model.lifecycle_data.buildpacks = [buildpack.name]
       app_model.lifecycle_data.stack = stack.name
       app_model.lifecycle_data.save
-      app_model.add_process(VCAP::CloudController::ProcessModel.make(instances: 1))
-      app_model.add_process(VCAP::CloudController::ProcessModel.make(instances: 2))
+      app_model.add_process(process1)
+      app_model.add_process(process2)
     end
 
     it 'gets a specific app' do
@@ -972,6 +1057,12 @@ RSpec.describe 'Apps' do
                 }
             },
             'relationships' => {
+                'processes' => {
+                  'data' => [
+                    { 'guid' => app_model.processes.first.guid },
+                    { 'guid' => app_model.processes.second.guid }
+                  ]
+                },
                 'space' => {
                     'data' => {
                         'guid' => space.guid
@@ -1018,6 +1109,12 @@ RSpec.describe 'Apps' do
                 }
             },
             'relationships' => {
+                'processes' => {
+                  'data' => [
+                    { 'guid' => app_model.processes.first.guid },
+                    { 'guid' => app_model.processes.second.guid }
+                  ]
+                },
                 'space' => {
                     'data' => {
                         'guid' => space.guid
@@ -1108,6 +1205,79 @@ RSpec.describe 'Apps' do
             }
           },
           'relationships' => { 'quota' => { 'data' => { 'guid' => org.quota_definition.guid } } },
+        }
+      )
+    end
+
+    it 'gets a specific app including process' do
+      get "/v3/apps/#{app_model.guid}?include=processes", nil, user_header
+      expect(last_response.status).to eq(200)
+
+      parsed_response = MultiJson.load(last_response.body)
+      processes = parsed_response['included']['processes']
+
+      expect(processes).to be_present
+      expect(processes.length).to eq(2)
+      expect(processes[0]).to be_a_response_like(
+        {
+          'guid' => process1.guid,
+          'relationships' => {
+            'app' => { 'data' => { 'guid' => app_model.guid } },
+            'revision' => nil,
+          },
+          'type'         => 'web',
+          'command'      => 'command1',
+          'instances'    => 1,
+          'memory_in_mb' => 1024,
+          'disk_in_mb'   => 1024,
+          'health_check' => {
+            'type' => 'port',
+            'data' => {
+              'timeout' => nil,
+              'invocation_timeout' => nil
+            }
+          },
+          'metadata' => { 'annotations' => {}, 'labels' => {} },
+          'created_at'   => iso8601,
+          'updated_at'   => iso8601,
+          'links'        => {
+            'self'  => { 'href' => "#{link_prefix}/v3/processes/#{process1.guid}" },
+            'scale' => { 'href' => "#{link_prefix}/v3/processes/#{process1.guid}/actions/scale", 'method' => 'POST' },
+            'app'   => { 'href' => "#{link_prefix}/v3/apps/#{app_model.guid}" },
+            'space' => { 'href' => "#{link_prefix}/v3/spaces/#{space.guid}" },
+            'stats' => { 'href' => "#{link_prefix}/v3/processes/#{process1.guid}/stats" },
+          },
+        }
+      )
+      expect(processes[1]).to be_a_response_like(
+        {
+          'guid' => process2.guid,
+          'relationships' => {
+            'app' => { 'data' => { 'guid' => app_model.guid } },
+            'revision' => nil,
+          },
+          'type'         => 'web',
+          'command'      => 'command2',
+          'instances'    => 2,
+          'memory_in_mb' => 1024,
+          'disk_in_mb'   => 1024,
+          'health_check' => {
+            'type' => 'port',
+            'data' => {
+              'timeout' => nil,
+              'invocation_timeout' => nil
+            }
+          },
+          'metadata' => { 'annotations' => {}, 'labels' => {} },
+          'created_at'   => iso8601,
+          'updated_at'   => iso8601,
+          'links'        => {
+            'self'  => { 'href' => "#{link_prefix}/v3/processes/#{process2.guid}" },
+            'scale' => { 'href' => "#{link_prefix}/v3/processes/#{process2.guid}/actions/scale", 'method' => 'POST' },
+            'app'   => { 'href' => "#{link_prefix}/v3/apps/#{app_model.guid}" },
+            'space' => { 'href' => "#{link_prefix}/v3/spaces/#{space.guid}" },
+            'stats' => { 'href' => "#{link_prefix}/v3/processes/#{process2.guid}/stats" },
+          },
         }
       )
     end
@@ -1390,6 +1560,8 @@ RSpec.describe 'Apps' do
     }
     let(:stack) { VCAP::CloudController::Stack.make(name: 'redhat') }
 
+    let!(:process) { VCAP::CloudController::ProcessModel.make(app: app_model) }
+
     let(:update_request) do
       {
         name: 'new-name',
@@ -1434,6 +1606,7 @@ RSpec.describe 'Apps' do
         value: 'delete this',
       )
     end
+
     it 'updates an app' do
       patch "/v3/apps/#{app_model.guid}", update_request.to_json, user_header
       expect(last_response.status).to eq(200)
@@ -1454,6 +1627,11 @@ RSpec.describe 'Apps' do
             }
           },
           'relationships' => {
+            'processes' => {
+              'data' => [
+                { 'guid' => process.guid }
+              ]
+            },
             'space' => {
               'data' => {
                 'guid' => space.guid
@@ -1566,6 +1744,7 @@ RSpec.describe 'Apps' do
 
       droplet = VCAP::CloudController::DropletModel.make(:buildpack, app: app_model, state: VCAP::CloudController::DropletModel::STAGED_STATE)
       app_model.droplet = droplet
+      process = VCAP::CloudController::ProcessModel.make(app: app_model)
       app_model.save
 
       post "/v3/apps/#{app_model.guid}/actions/start", nil, user_header
@@ -1587,6 +1766,11 @@ RSpec.describe 'Apps' do
                                                             }
                                                         },
                                                         'relationships' => {
+                                                            'processes' => {
+                                                              'data' => [
+                                                                { 'guid' => process.guid }
+                                                              ]
+                                                            },
                                                             'space' => {
                                                                 'data' => {
                                                                     'guid' => space.guid
@@ -1696,6 +1880,7 @@ RSpec.describe 'Apps' do
         state: VCAP::CloudController::DropletModel::STAGED_STATE
       )
     end
+    let!(:process) { VCAP::CloudController::ProcessModel.make(app: app_model) }
 
     before do
       app_model.lifecycle_data.buildpacks = ['http://example.com/git']
@@ -1704,6 +1889,7 @@ RSpec.describe 'Apps' do
       app_model.droplet = droplet
       app_model.save
     end
+
     it 'stops the app' do
       post "/v3/apps/#{app_model.guid}/actions/stop", nil, user_header
       expect(last_response.status).to eq(200)
@@ -1725,6 +1911,11 @@ RSpec.describe 'Apps' do
                 }
             },
             'relationships' => {
+                'processes' => {
+                  'data' => [
+                    { 'guid' => process.guid }
+                  ]
+                },
                 'space' => {
                     'data' => {
                         'guid' => space.guid
@@ -1830,6 +2021,9 @@ RSpec.describe 'Apps' do
                 }
             },
             'relationships' => {
+                'processes' => {
+                  'data' => []
+                },
                 'space' => {
                     'data' => {
                         'guid' => space.guid
