@@ -288,7 +288,7 @@ opi:
 kubernetes:
   host_url: https://master.default.svc.cluster-domain.example
   service_account:
-    token_file: /tmp/token
+    token_file: "spec/fixtures/service_accounts/k8s.token"
   ca_file: "spec/fixtures/certs/kubernetes_ca.crt"
   kpack:
     builder_namespace: 'cf-workloads'

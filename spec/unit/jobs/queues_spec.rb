@@ -21,14 +21,14 @@ module VCAP::CloudController
 
         context 'when NOT configuring queue name' do
           before do
-            ENV['HOSTNAME'] = "poop"
+            ENV['HOSTNAME'] = 'poop'
             TestConfig.override(
-              name: ""
+              name: ''
             )
           end
 
           it 'returns a local job queue using the hostname of the local worker as the name' do
-            expect(Queues.local(TestConfig.config_instance)).to eq("cc-#{ENV['HOSTNAME']}")
+            expect(Queues.local(TestConfig.config_instance)).to eq('cc-poop')
           end
         end
       end
