@@ -3,6 +3,7 @@ require 'cloud_controller/clock/job_timeout_calculator'
 require 'jobs/pollable_job_wrapper'
 require 'jobs/logging_context_job'
 require 'jobs/timeout_job'
+require 'securerandom'
 
 module VCAP::CloudController
   module Jobs
@@ -25,6 +26,7 @@ module VCAP::CloudController
           wrapped_job = yield wrapped_job
         end
 
+        @opts['guid'] = SecureRandom.uuid
         delayed_job = enqueue_job(wrapped_job)
         PollableJobModel.find_by_delayed_job(delayed_job)
       end
